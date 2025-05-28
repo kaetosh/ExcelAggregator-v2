@@ -10,56 +10,11 @@ import tkinter as tk
 from tkinter import filedialog
 from pathlib import Path
 import pandas as pd
-from openpyxl import load_workbook
 from typing import List
 from textual.widgets import ProgressBar
 
 from data_text import NAME_OUTPUT_FILE
 
-# def aggregating_data_from_excel_files(pr_bar_one: ProgressBar,
-#                                       pr_bar_two: ProgressBar,
-#                                       excel_files: List[Path],
-#                                       sheet_name_list: List[str]) -> List[str]:
-#     dict_df = {}
-#     missing_files = []
-#     for index, file_excel in enumerate(excel_files):
-#         for index_a, sheetnames in enumerate(sheet_name_list):
-#             try:
-#                 # Читаем файл без заголовков
-#                 df = pd.read_excel(file_excel, sheetnames, header=None)
-
-#                 # Добавляем столбец с именем файла
-#                 df['Исх.файл'] = file_excel.name
-
-#                 # Перемещаем столбец 'Исх.файл' в начало
-#                 cols = df.columns.to_list()
-#                 cols.insert(0, cols.pop(cols.index('Исх.файл')))
-#                 df = df.loc[:, cols]
-
-#                 # Сохраняем DataFrame в словаре
-#                 dict_df[file_excel] = df
-#             except ValueError:
-#                 missing_files.append(file_excel.name)
-#             percentage_a = ((index_a+1) / len(sheet_name_list)) * 100
-#             pr_bar_one.update(progress=percentage_a)
-#         pr_bar_one.update(progress=100)
-#         percentage = ((index+1) / len(excel_files)) * 100
-#         pr_bar_two.update(progress=percentage)
-#     pr_bar_two.update(progress=100)
-#     try:
-#         if dict_df:
-#             result = pd.concat(list(dict_df.values()), ignore_index=True)
-#             result.to_excel(NAME_OUTPUT_FILE, index = False)
-#             os.startfile(os.path.abspath(NAME_OUTPUT_FILE))
-#     except PermissionError:
-#         raise PermissionError(f"Ошибка доступа к {NAME_OUTPUT_FILE}")
-#     except FileNotFoundError:
-#         raise FileNotFoundError(f"Ошибка, файл {NAME_OUTPUT_FILE} не найден.")
-#     except OSError:
-#         raise OSError("Ошибка, не найдено приложение Excel.")
-#     except Exception:
-#         raise Exception("Неизвестная ошибка!")
-#     return missing_files
 
 class NoExcelFilesError(Exception):
     """Custom exception for no Excel files found."""
@@ -103,12 +58,13 @@ def get_unique_sheet_names(file_paths: List[Path], one_prbar: ProgressBar) -> Li
         percentage = ((index+1) / len(file_paths)) * 100
         one_prbar.update(progress=percentage)
     one_prbar.update(progress=100)
-    return list(unique_sheets)  # Преобразуем множество обратно в список
+    list_unique_sheets = list(unique_sheets)
+    list_unique_sheets.sort(key=str.lower)
+    return list_unique_sheets  # Преобразуем множество обратно в список
 
 
 
-def aggregating_data_from_excel_files(pr_bar_one: ProgressBar,
-                                      pr_bar_two: ProgressBar,
+def aggregating_data_from_excel_files(pr_bar: ProgressBar,
                                       excel_files: List[Path],
                                       sheet_name_list: List[str]) -> List[str]:
     dict_df = {}
@@ -118,27 +74,26 @@ def aggregating_data_from_excel_files(pr_bar_one: ProgressBar,
             lists_current_file = get_sheet_names(file_excel)
             set_1 = set(lists_current_file)
             result = [item for item in sheet_name_list if item in set_1]
+            result.sort(key=str.lower)
 
-            # Читаем файл без заголовков
-            df = pd.read_excel(file_excel, result, header=None)
+            # словарь, ключ - имя листа, значение - датафрейм
+            df_dict = pd.read_excel(file_excel, result, header=None)
 
-            df = pd.concat(df.values(), ignore_index=True)
+            for key in df_dict:
+                df_dict[key].insert(0, 'Имя листа', key)
+
+            df = pd.concat(df_dict.values(), ignore_index=True)
 
             # Добавляем столбец с именем файла
-            df['Исх.файл'] = file_excel.name
-
-            # Перемещаем столбец 'Исх.файл' в начало
-            cols = df.columns.to_list()
-            cols.insert(0, cols.pop(cols.index('Исх.файл')))
-            df = df.loc[:, cols]
+            df.insert(0, 'Имя файла', file_excel.name)
 
             # Сохраняем DataFrame в словаре
             dict_df[file_excel] = df
         except ValueError:
             missing_files.append(file_excel.name)
         percentage = ((index+1) / len(excel_files)) * 100
-        pr_bar_two.update(progress=percentage)
-    pr_bar_two.update(progress=100)
+        pr_bar.update(progress=percentage)
+    pr_bar.update(progress=100)
     try:
         if dict_df:
             result = pd.concat(list(dict_df.values()), ignore_index=True)
@@ -150,6 +105,6 @@ def aggregating_data_from_excel_files(pr_bar_one: ProgressBar,
         raise FileNotFoundError(f"Ошибка, файл {NAME_OUTPUT_FILE} не найден.")
     except OSError:
         raise OSError("Ошибка, не найдено приложение Excel.")
-    # except Exception:
-    #     raise Exception("Неизвестная ошибка!")
+    except Exception:
+        raise Exception("Неизвестная ошибка!")
     return missing_files
