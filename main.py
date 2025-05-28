@@ -12,7 +12,7 @@ from textual import work, on
 from textual.app import App, ComposeResult
 from textual.reactive import reactive
 from textual.containers import Horizontal
-from textual.widgets import Header, Footer, Static, LoadingIndicator, ProgressBar, Input, SelectionList
+from textual.widgets import Header, Footer, Static, LoadingIndicator, ProgressBar, SelectionList
 from textual.containers import Middle, Center
 
 from aggregation import (select_folder,
@@ -33,7 +33,9 @@ from data_text import (NAME_APP,
                        TEXT_ERR_FILE_NOT_FOUND,
                        TEXT_APP_EXCEL_NOT_FIND,
                        TEXT_UNKNOW_ERR,
-                       TEXT_ALL_PROCESSED_FILES
+                       TEXT_ALL_PROCESSED_FILES,
+                       TEXT_GENERATING_LIST_SHEETS,
+                       TEXT_AGGREGATION_PROCESS
                        )
 
 class ExcelAggregatorApp(App):
@@ -56,7 +58,7 @@ class ExcelAggregatorApp(App):
         margin: 0 0 0 1
     }
     Horizontal {
-        height: auto;
+        height: 5fr;
         border: solid #0087d7;
     }
     LoadingIndicator {
@@ -65,6 +67,7 @@ class ExcelAggregatorApp(App):
     }
     ProgressBar {
         padding-left: 3;
+        height: 0.5fr
     }
     """
 
@@ -74,10 +77,11 @@ class ExcelAggregatorApp(App):
         ("backspace", "deselect"),
     ]
     file_path = reactive(Path.cwd())
-    sheet_name = reactive(['Лист1'])
+    sheet_name = reactive(['НЕ ВЫБРАНЫ'])
 
     def action_deselect(self) -> None:
         self.query_one(SelectionList).deselect_all()
+        self.sheet_name = ['НЕ ВЫБРАНЫ']
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True, icon='<>')
@@ -93,20 +97,18 @@ class ExcelAggregatorApp(App):
         with Middle():
             with Center():
                 yield ProgressBar(id='one_prbar', classes='prbar')
-                yield ProgressBar(id='two_prbar', classes='prbar')
 
     def on_mount(self) -> None:
         self.title = NAME_APP
         self.sub_title = SUB_TITLE_APP
         self.query_one(LoadingIndicator).visible = False
         self.query_one('#one_prbar').visible = False
-        self.query_one('#two_prbar').visible = False
         self.query_one(SelectionList).border_title = "Выберете листы:"
 
     @on(SelectionList.SelectedChanged)
     def handle_select_sheet(self):
-        self.list_sheet_name = self.query_one(SelectionList).selected
-        sheet_name = ', '.join(self.list_sheet_name)
+        self.sheet_name = self.query_one(SelectionList).selected
+        sheet_name = ', '.join(self.sheet_name) or 'НЕ ВЫБРАНО'
         self.query_one('.steps_l').update(TEXT_GENERAL.format(NAME_APP=NAME_APP,
                                                               NAME_OUTPUT_FILE=NAME_OUTPUT_FILE,
                                                               file_path=self.file_path,
@@ -124,7 +126,7 @@ class ExcelAggregatorApp(App):
     @work(thread=True)
     def load_files_thread(self) -> None:
         try:
-            self.query_one('.steps_l').update('Идет чтение файлов и формирование списка листов...')
+            self.query_one('.steps_l').update(TEXT_GENERATING_LIST_SHEETS)
             self.query_one(LoadingIndicator).visible = True
             self.query_one(SelectionList).visible = False
             self.names_files_excel = get_excel_files(self.file_path)
@@ -142,10 +144,10 @@ class ExcelAggregatorApp(App):
             self.query_one(SelectionList).visible = True
             self.query_one(LoadingIndicator).visible = False
         except NoExcelFilesError:
-            self.query_one('.steps_l').update(TEXT_GENERAL.format(NAME_APP=NAME_APP,
-                                                                  NAME_OUTPUT_FILE=NAME_OUTPUT_FILE,
-                                                                  file_path=self.file_path,
-                                                                  sheet_name=', '.join(self.sheet_name)))
+            self.query_one('.steps_l').update(TEXT_ERR_FILES_EXCEL.format(NAME_APP=NAME_APP,
+                                                                          NAME_OUTPUT_FILE=NAME_OUTPUT_FILE,
+                                                                          file_path=self.file_path,
+                                                                          sheet_name=', '.join(self.sheet_name)))
         finally:
             self.query_one('#one_prbar').visible = False
             self.query_one('#one_prbar').update(progress=0)
@@ -153,23 +155,17 @@ class ExcelAggregatorApp(App):
             self.query_one(LoadingIndicator).visible = False
 
 
-
-
-
     @work(thread=True)
     def action_open_consolidate(self) -> None:
         self.query_one(LoadingIndicator).visible = True
-        self.query_one('.steps_l').update('Идет обработка данных...')
+        self.query_one('.steps_l').update(TEXT_AGGREGATION_PROCESS)
         self.query_one('.steps_r').visible=False
         try:
             self.query_one('#one_prbar').update(total=100)
-            self.query_one('#two_prbar').update(total=100)
             self.query_one('#one_prbar').visible = True
-            self.query_one('#two_prbar').visible = True
             missing_files= aggregating_data_from_excel_files(self.query_one('#one_prbar'),
-                                                             self.query_one('#two_prbar'),
                                                              self.names_files_excel,
-                                                             self.list_sheet_name)
+                                                             self.sheet_name)
             if len(missing_files) == len(self.names_files_excel):
                 self.query_one('.steps_l').update(TEXT_ERR_NO_PROCESSED_FILES.format(NAME_APP=NAME_APP,
                                                                                      NAME_OUTPUT_FILE=NAME_OUTPUT_FILE,
@@ -207,17 +203,14 @@ class ExcelAggregatorApp(App):
                                                                              error_app_xls = e,
                                                                              file_path=self.file_path,
                                                                              sheet_name=', '.join(self.sheet_name)))
-        # except Exception as e:
-        #     self.query_one('.steps_l').update(TEXT_UNKNOW_ERR.format(text_err=e))
+        except Exception as e:
+            self.query_one('.steps_l').update(TEXT_UNKNOW_ERR.format(text_err=e))
 
         finally:
             self.query_one(LoadingIndicator).visible = False
             self.query_one('.steps_r').visible=True
             self.query_one('#one_prbar').visible = False
-            self.query_one('#two_prbar').visible = False
             self.query_one('#one_prbar').update(progress=0)
-            self.query_one('#two_prbar').update(progress=0)
-
 
 if __name__ == "__main__":
     app = ExcelAggregatorApp()
