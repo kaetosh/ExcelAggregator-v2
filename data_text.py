@@ -8,7 +8,8 @@ Created on Mon May 26 09:17:28 2025
 NAME_APP = 'ExcelAggregator'
 SUB_TITLE_APP = 'простой аналог PowerQuery из Excel'
 NAME_DATA_FILE = 'data_comparison.xlsx'
-NAME_OUTPUT_FILE = 'consolidated.xlsx'
+# NAME_OUTPUT_FILE = 'consolidated.xlsx'
+NAME_OUTPUT_FILE = 'consolidated.csv'
 
 TEXT_INTRODUCTION = f"""{NAME_APP} позволяет быстро собрать данные из множества файлов Excel в одном, указав только папку с исходыми файлами и листы, с которых нужно собрать эти данные.
 Данные будут расположены друг под другом 'как есть', без дополнительной обработки.
@@ -50,7 +51,7 @@ TEXT_ERR_NO_PROCESSED_FILES = """Извините, но {NAME_APP} не смог
 
 TEXT_ERR_NOT_ALL_PROCESSED_FILES = """Обработка завершена частично. {NAME_APP} не смог обработать все файлы. Убедитесь, что в обрабатываемых файлах:
 {missing_files}
-существует лист с именем {sheet_name}.
+существует листы с именами {sheet_name}.
 
 """+TEXT_GENERAL
 
