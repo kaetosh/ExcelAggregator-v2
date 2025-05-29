@@ -183,8 +183,8 @@ class ExcelAggregatorApp(App):
             self.update_steps_text(TEXT_APP_EXCEL_NOT_FIND.format(error_app_xls=e))
         except TypeError:
             self.update_steps_text(TEXT_NOT_SELECT_DIR)
-        except Exception as e:
-            self.update_steps_text(TEXT_UNKNOW_ERR.format(text_err=e))
+        # except Exception as e:
+        #     self.update_steps_text(TEXT_UNKNOW_ERR.format(text_err=e))
         finally:
             self.reset_progress()
             self.query_one('.steps_r').visible = True
@@ -193,7 +193,11 @@ class ExcelAggregatorApp(App):
         if len(missing_files) == len(self.names_files_excel):
             self.update_steps_text(TEXT_ERR_NO_PROCESSED_FILES)
         elif missing_files:
-            self.update_steps_text(TEXT_ERR_NOT_ALL_PROCESSED_FILES.format(missing_files='\n'.join(missing_files)))
+            self.update_steps_text(TEXT_ERR_NOT_ALL_PROCESSED_FILES.format(missing_files='\n'.join(missing_files),
+                                                                           NAME_APP=NAME_APP,
+                                                                           NAME_OUTPUT_FILE=NAME_OUTPUT_FILE,
+                                                                           sheet_name=', '.join(self.sheet_name),
+                                                                           file_path=self.file_path,))
         else:
             self.update_steps_text(TEXT_ALL_PROCESSED_FILES)
 
