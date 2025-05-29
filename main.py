@@ -11,7 +11,7 @@ from pathlib import Path
 from textual import work, on
 from textual.app import App, ComposeResult
 from textual.reactive import reactive
-from textual.containers import Horizontal
+from textual.containers import Horizontal, VerticalScroll
 from textual.widgets import Header, Footer, Static, LoadingIndicator, ProgressBar, SelectionList
 from textual.containers import Middle, Center
 
@@ -45,30 +45,29 @@ class ExcelAggregatorApp(App):
         height: auto;
         border: solid #0087d7;
     }
-    .SelectionList {
-        height: auto;
+    VerticalScroll {
+        width: 3fr;
     }
     .steps_l {
         height: auto;
-        width: 3fr;
     }
     .steps_r {
-        height: 100%;
+        height: 1fr;
         border: solid #0087d7;
         width: 1fr;
         margin: 0 0 0 1
     }
     Horizontal {
-        height: 5fr;
+        height: 70%;
         border: solid #0087d7;
     }
     LoadingIndicator {
         dock: bottom;
-        height: 10%;
+        height: auto;
     }
     ProgressBar {
         padding-left: 3;
-        height: 0.5fr
+        height: auto;
     }
     """
 
@@ -86,10 +85,10 @@ class ExcelAggregatorApp(App):
         yield Header(show_clock=True, icon='<>')
         yield Static(TEXT_INTRODUCTION, classes='introduction')
         yield Horizontal(
-            Static(TEXT_GENERAL.format(NAME_APP=NAME_APP,
+            VerticalScroll(Static(TEXT_GENERAL.format(NAME_APP=NAME_APP,
                                        NAME_OUTPUT_FILE=NAME_OUTPUT_FILE,
                                        file_path=self.file_path,
-                                       sheet_name=', '.join(self.sheet_name)), classes='steps_l'),
+                                       sheet_name=', '.join(self.sheet_name)), classes='steps_l')),
             SelectionList[int](classes='steps_r'), id='example'
         )
         yield Footer()
@@ -158,6 +157,7 @@ class ExcelAggregatorApp(App):
         self.query_one('#one_prbar').visible = False
         self.query_one('#one_prbar').update(progress=0)
         self.query_one(LoadingIndicator).visible = False
+        self.query_one(SelectionList).visible = True
 
     @work(thread=True)
     def action_open_consolidate(self) -> None:
@@ -169,7 +169,8 @@ class ExcelAggregatorApp(App):
             self.query_one('#one_prbar').update(total=100)
             self.query_one('#one_prbar').visible = True
 
-            missing_files = aggregating_data_from_excel_files(self.query_one('#one_prbar'),
+            missing_files = aggregating_data_from_excel_files(self.query_one('.steps_l'),
+                                                              self.query_one('#one_prbar'),
                                                               self.names_files_excel,
                                                               self.sheet_name)
             self.handle_aggregation_results(missing_files)
@@ -183,8 +184,8 @@ class ExcelAggregatorApp(App):
             self.update_steps_text(TEXT_APP_EXCEL_NOT_FIND.format(error_app_xls=e))
         except TypeError:
             self.update_steps_text(TEXT_NOT_SELECT_DIR)
-        # except Exception as e:
-        #     self.update_steps_text(TEXT_UNKNOW_ERR.format(text_err=e))
+        except Exception as e:
+            self.update_steps_text(TEXT_UNKNOW_ERR.format(text_err=e))
         finally:
             self.reset_progress()
             self.query_one('.steps_r').visible = True
