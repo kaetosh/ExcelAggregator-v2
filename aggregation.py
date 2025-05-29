@@ -137,7 +137,8 @@ def aggregating_data_from_excel_files(
     try:
         if dict_df:
             result = pd.concat(dict_df.values(), ignore_index=True)
-            result.to_excel(NAME_OUTPUT_FILE, index=False)
+            # result.to_excel(NAME_OUTPUT_FILE, index=False)
+            result.to_csv(NAME_OUTPUT_FILE, index=False)
             # Открываем файл в ОС (Windows)
             if os.name == 'nt':
                 os.startfile(os.path.abspath(NAME_OUTPUT_FILE))
