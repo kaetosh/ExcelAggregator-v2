@@ -11,9 +11,12 @@ from tkinter import filedialog
 from pathlib import Path
 import pandas as pd
 from typing import List, Dict, Set
-from textual.widgets import ProgressBar
+from textual.widgets import ProgressBar, Static
 
-from data_text import NAME_OUTPUT_FILE
+from data_text import (NAME_OUTPUT_FILE,
+                       TEXT_CONCAT_PROCESS,
+                       TEXT_LOAD_FILE_XLS,
+                       TEXT_OPEN_FILE_XLS)
 
 
 class NoExcelFilesError(Exception):
@@ -82,11 +85,11 @@ def get_unique_sheet_names(file_paths: List[Path], one_prbar: ProgressBar) -> Li
 
 
 
-def aggregating_data_from_excel_files(
-    pr_bar: ProgressBar,
-    excel_files: List[Path],
-    sheet_name_list: List[str]
-) -> List[str]:
+def aggregating_data_from_excel_files(static_widget: Static,
+                                      pr_bar: ProgressBar,
+                                      excel_files: List[Path],
+                                      sheet_name_list: List[str]
+                                      ) -> List[str]:
     """
     Агрегирует данные из указанных листов Excel-файлов в один файл.
     Возвращает список файлов, которые не удалось обработать.
@@ -107,6 +110,8 @@ def aggregating_data_from_excel_files(
 
             if not sheets_to_read:
                 missing_files.append(file_excel.name)
+                percentage = ((index + 1) / total_files) * 100
+                pr_bar.update(progress=percentage)
                 continue
 
             # Читаем несколько листов одновременно, header=None — без заголовков
@@ -123,23 +128,33 @@ def aggregating_data_from_excel_files(
             df.insert(0, 'Имя файла', file_excel.name)
 
             dict_df[file_excel] = df
+            percentage = ((index + 1) / total_files) * 100
+            pr_bar.update(progress=percentage)
         except ValueError:
             missing_files.append(file_excel.name)
+            percentage = ((index + 1) / total_files) * 100
+            pr_bar.update(progress=percentage)
         except Exception:
             # Можно добавить логирование ошибок
             missing_files.append(file_excel.name)
+            percentage = ((index + 1) / total_files) * 100
+            pr_bar.update(progress=percentage)
 
-        percentage = ((index + 1) / total_files) * 100
-        pr_bar.update(progress=percentage)
 
+        # Собираем данные с выбранных листов каждого файла...
     pr_bar.update(progress=100)
 
     try:
         if dict_df:
+            # Объединяем данные в общий массив...
+            static_widget.update(TEXT_CONCAT_PROCESS)
             result = pd.concat(dict_df.values(), ignore_index=True)
-            # result.to_excel(NAME_OUTPUT_FILE, index=False)
-            result.to_csv(NAME_OUTPUT_FILE, index=False)
+            # Выгружаем сводные данные в excel файл...
+            static_widget.update(TEXT_LOAD_FILE_XLS)
+            result.to_excel(NAME_OUTPUT_FILE, index=False)
+
             # Открываем файл в ОС (Windows)
+            static_widget.update(TEXT_OPEN_FILE_XLS)
             if os.name == 'nt':
                 os.startfile(os.path.abspath(NAME_OUTPUT_FILE))
     except PermissionError:
