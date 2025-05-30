@@ -12,6 +12,8 @@ from pathlib import Path
 import pandas as pd
 from typing import List, Dict, Set
 from textual.widgets import ProgressBar, Static
+import win32com.client
+import pythoncom
 
 from data_text import (NAME_OUTPUT_FILE,
                        TEXT_CONCAT_PROCESS,
@@ -19,7 +21,34 @@ from data_text import (NAME_OUTPUT_FILE,
                        TEXT_OPEN_FILE_XLS)
 
 
+def is_excel_file_open(filepath: str) -> bool:
+    # Проверяем, существует ли файл
+    if not os.path.exists(filepath):
+        return False
+
+    # Инициализируем COM в текущем потоке
+    pythoncom.CoInitialize()
+
+    try:
+        # Получаем объект Excel
+        excel = win32com.client.Dispatch("Excel.Application")
+
+        # Проходим по всем открытым книгам
+        for workbook in excel.Workbooks:
+            if workbook.FullName.lower() == os.path.abspath(filepath).lower():
+                raise PermissionError
+
+        return False
+    finally:
+        # Освобождаем COM
+        pythoncom.CoUninitialize()
+
+
 class NoExcelFilesError(Exception):
+    """Custom exception for no Excel files found."""
+    pass
+
+class NoSelectSheetsError(Exception):
     """Custom exception for no Excel files found."""
     pass
 
@@ -130,18 +159,11 @@ def aggregating_data_from_excel_files(static_widget: Static,
             dict_df[file_excel] = df
             percentage = ((index + 1) / total_files) * 100
             pr_bar.update(progress=percentage)
-        except ValueError:
-            missing_files.append(file_excel.name)
-            percentage = ((index + 1) / total_files) * 100
-            pr_bar.update(progress=percentage)
         except Exception:
             # Можно добавить логирование ошибок
             missing_files.append(file_excel.name)
             percentage = ((index + 1) / total_files) * 100
             pr_bar.update(progress=percentage)
-
-
-        # Собираем данные с выбранных листов каждого файла...
     pr_bar.update(progress=100)
 
     try:
